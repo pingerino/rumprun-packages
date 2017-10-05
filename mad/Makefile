@@ -10,6 +10,7 @@ export CC CXX
 build/.stamp: | dl/${MIBENCH_CONSUMER}
 	mkdir -p $(dir $@)
 	(cd build && tar -xz --strip-components 2 -f ../dl/${MIBENCH_CONSUMER} consumer/mad)
+	(cd build && ../../scripts/apply-patches.sh ./ ../patches/*)
 	touch $@
 
 build/mad-0.14.2b/Makefile: build/.stamp
