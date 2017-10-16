@@ -6,29 +6,35 @@ CC=$(RUMPRUN_CC)
 CXX=$(RUMPRUN_CXX)
 export CC CXX
 
-all: bin/redis-server images/data.iso images/datapers.img
+BUILD_DIR ?= .
 
-cache: bin/redis-server images/data.iso
+all: redis-server $(BUILD_DIR)/images/data.iso $(BUILD_DIR)/images/datapers.img
 
-bin/redis-server: build/redis-server
-	mkdir -p bin
-	cp build/src/redis-server bin/
+cache: redis-server $(BUILD_DIR)/images/data.iso
 
-build/redis-server: build/Makefile
-	$(MAKE) -C build MALLOC=libc redis-server
+.PHONY: redis-server
+redis-server: $(BUILD_DIR)/bin/redis-server
 
-build/Makefile: dl/${TARBALL}
-	mkdir -p build
-	(cd build && tar -xz --strip-components 1 -f ../dl/${TARBALL})
+
+$(BUILD_DIR)/bin/redis-server: $(BUILD_DIR)/build/src/redis-server
+	mkdir -p $(dir $@)
+	cp $^ $@
+
+$(BUILD_DIR)/build/src/redis-server: $(BUILD_DIR)/build/Makefile
+	$(MAKE) -C $(BUILD_DIR)/build MALLOC=libc redis-server
+
+$(BUILD_DIR)/build/Makefile: dl/${TARBALL}
+	mkdir -p $(BUILD_DIR)/build
+	tar -xz --strip-components 1 -f dl/${TARBALL} -C $(BUILD_DIR)/build
 
 dl/$(TARBALL):
 	mkdir -p dl
 	../scripts/fetch.sh ${UPSTREAM} dl/$(TARBALL)
 
-images/data.iso: images/data/conf/*
+$(BUILD_DIR)/images/data.iso: images/data/conf/*
 	$(RUMPRUN_GENISOIMAGE) -o $@ images/data
 
-images/datapers.img:
+$(BUILD_DIR)/images/datapers.img:
 	dd if=/dev/zero of=$@ bs=1024k seek=$(PERSISTENCE_SIZE) count=0
 	mkfs.ext2 -F -q $@
 
@@ -36,9 +42,9 @@ images/datapers.img:
 clean:	clean/build clean/bin
 	
 clean/build:
-	rm -rf build
+	rm -rf $(BUILD_DIR)/build
 
 clean/bin:
-	rm -rf bin
-	rm -f images/data.iso
-	rm -f images/datapers.iso
+	rm -rf $(BUILD_DIR)/bin
+	rm -f $(BUILD_DIR)/images/data.iso
+	rm -f $(BUILD_DIR)/images/datapers.iso
