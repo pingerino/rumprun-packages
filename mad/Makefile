@@ -16,9 +16,12 @@ build/.stamp: | dl/${MIBENCH_CONSUMER}
 build/mad-0.14.2b/Makefile: build/.stamp
 	(cd $(dir $@) && ./configure --host=$(RUMPRUN_TOOLCHAIN_TUPLE);)
 
-mad: build/mad-0.14.2b/Makefile
+
+SRC=$(wildcard build/mad-0.14.2b/*.c)
+
+mad: build/mad-0.14.2b/Makefile $(SRC)
 	(cd $(dir $^) && make)
 
 .PHONY: clean
 clean:
-	rm -rf build
+	(cd build && make clean)

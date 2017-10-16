@@ -11,10 +11,12 @@ build/.stamp: | dl/${MIBENCH_CONSUMER}
 	(cd build && ../../scripts/apply-patches.sh ./ ../patches/*)
 	touch $@
 
-jpeg: build/.stamp
+SRC=$(wildcard jpeg-6a/*.c) $(wildcard jpeg-6a/*.h)
+
+jpeg: build/.stamp $(SRC)
 	(cd build/jpeg-6a; make)
 
 .PHONY: clean
 
 clean:
-	rm -rf build
+	(cd build && make clean)

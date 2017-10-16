@@ -8,10 +8,10 @@ build/.stamp: | dl/${MIBENCH_AUTOMOTIVE}
 	(cd build && tar -xz --strip-components 2 -f ../dl/${MIBENCH_AUTOMOTIVE} automotive/susan)
 	touch $@
 
-susan: build/.stamp
+susan: build/.stamp build/susan.c
 	(cd build; ${RUMPRUN_CC} -osusan.o susan.c -lm -lc -g)
 
 .PHONY: clean
 
 clean:
-	rm -rf build
+	rm build/susan.o
