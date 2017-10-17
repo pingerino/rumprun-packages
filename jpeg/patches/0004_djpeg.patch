@@ -1,0 +1,19 @@
+--- a/jpeg-6a/djpeg.c	2001-10-17 12:57:08.000000000 +1000
++++ b/jpeg-6a/djpeg.c	2017-10-16 14:17:19.336116072 +1100
+@@ -416,7 +416,7 @@
+  */
+
+ int
+-main (int argc, char **argv)
++djpeg_main (int argc, char **argv)
+ {
+   struct jpeg_decompress_struct cinfo;
+   struct jpeg_error_mgr jerr;
+@@ -599,6 +599,5 @@
+ #endif
+
+   /* All done. */
+-  exit(jerr.num_warnings ? EXIT_WARNING : EXIT_SUCCESS);
+-  return 0;			/* suppress no-return-value warnings */
++  return jerr.num_warnings ? EXIT_WARNING : EXIT_SUCCESS;			/* suppress no-return-value warnings */
+ }

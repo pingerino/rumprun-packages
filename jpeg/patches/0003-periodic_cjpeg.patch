@@ -1,0 +1,199 @@
+--- a/jpeg-6a/cjpeg.c	2001-10-17 12:57:08.000000000 +1000
++++ b/jpeg-6a/cjpeg.c	2017-10-17 11:35:56.076542785 +1100
+@@ -22,7 +22,7 @@
+  *	cjpeg [options]  -outfile outputfile  inputfile
+  * works regardless of which command line style is used.
+  */
+-
++#include <assert.h>
+ #include "cdjpeg.h"		/* Common decls for cjpeg/djpeg applications */
+ #include "jversion.h"		/* for version message */
+
+@@ -36,6 +36,7 @@
+ #endif
+ #endif
+
++#include <sel4/sel4.h>
+
+ /* Create the add-on message string table. */
+
+@@ -458,7 +459,7 @@
+  */
+
+ int
+-main (int argc, char **argv)
++cjpeg_main (int argc, char **argv)
+ {
+   struct jpeg_compress_struct cinfo;
+   struct jpeg_error_mgr jerr;
+@@ -601,6 +602,168 @@
+ #endif
+
+   /* All done. */
+-  exit(jerr.num_warnings ? EXIT_WARNING : EXIT_SUCCESS);
+-  return 0;			/* suppress no-return-value warnings */
++  return jerr.num_warnings ? EXIT_WARNING : EXIT_SUCCESS;
++}
++
++#define NS_IN_S 1000000000
++
++/* just read the tsc. This may be executed out of order as it is unserialised */
++static inline uint64_t
++rdtsc_pure(void)
++{
++    uint32_t high, low;
++
++    __asm__ __volatile__ (
++        "rdtsc"
++        : "=a" (low),
++        "=d" (high)
++        : /* no input */
++        : /* no clobbers */
++    );
++
++    return (((uint64_t) high) << 32llu) + (uint64_t) low;
++
++}
++
++#define SET_TIMEOUT 2
++#define TIMEOUT_PERIODIC 0
++
++
++/* This function can be used to calculate ((a * b) / c) without causing
++ * overflow by doing (a * b). It also allows you to avoid loss of precision
++ * if you attempte to rearrange the algorithm to (a * (c / b))
++ * It is essentially the Ancient Egyption Multiplication
++ * with (a * (b / c)) but we keep (b / c) in quotient+remainder
++ * form to not lose precision.
++ * This function only works with unsigned 64bit types. It can be
++ * trivially abstracted to other sizes. Dealing with signed is possible
++ * but not included here */
++static inline uint64_t muldivu64(uint64_t a, uint64_t b, uint64_t c)
++{
++    /* quotient and remainder of the final calculation */
++    uint64_t quotient = 0;
++    uint64_t remainder = 0;
++    /* running quotient and remainder of the current power of two
++     * bit we are looking at. As we look at the different bits
++     * of a we will increase these */
++    uint64_t cur_quotient = b / c;
++    uint64_t cur_remainder = b % c;
++    /* we will iterate through all the bits of a from least to most
++     * significant, we can stop early once there are no set bits though */
++    while (a) {
++        /* If this bit is set then the power of two is part of the
++         * construction of a */
++        if (a & 1) {
++            /* increase final quotient, taking care of any remainder */
++            quotient += cur_quotient;
++            remainder += cur_remainder;
++            if (remainder >= c) {
++                quotient++;
++                remainder -= c;
++            }
++        }
++        /* Go to the next bit of a. Also means the effective quotient
++         * and remainder of our (b / c) needs increasing */
++        a >>= 1;
++        cur_quotient <<= 1;
++        cur_remainder <<= 1;
++        /* Keep the remainder sensible, otherewise the remainder check
++         * in the if (a & 1) case has to become a loop */
++        if (cur_remainder >= c) {
++            cur_quotient++;
++            cur_remainder -= c;
++        }
++    }
++    return quotient;
++}
++
++static inline uint64_t tsc_get_time(uint64_t freq)
++{
++    return muldivu64(rdtsc_pure(), NS_IN_S, freq);
++}
++
++
++#define RUNS 100
++static uint64_t results[RUNS][2][3];
++
++int main (int argc, char **argv)
++{
++
++    volatile int *stage = (int *) atol(argv[1]);
++    uint64_t period = atol(argv[2]);
++    seL4_CPtr ep = atol(argv[3]);
++    seL4_CPtr signal = atol(argv[4]);
++    uint64_t freq = atol(argv[5]);
++
++    printf("Got args %p %lu %x %x %lu\n", stage, period, ep, signal, freq);
++    assert(*stage == 0);
++
++
++    char *cjpeg_argv[] = {
++        "cjpeg",
++        "-dct",
++        "int",
++        "-progressive",
++        "-opt",
++        "-outfile",
++        "/tmp/output_large_encode.jpeg",
++        "/data/jpeg/input_large.ppm"
++    };
++
++
++    char *djpeg_argv[] = {
++        "djpeg",
++        "-dct",
++        "int",
++        "-ppm",
++        "-outfile",
++        "/tmp/output_large_decode.ppm",
++        "/data/jpeg/input_large.jpg"
++    };
++
++
++    /* wait for the start signal */
++    seL4_SetMR(0, SET_TIMEOUT);
++    seL4_SetMR(1, TIMEOUT_PERIODIC);
++    seL4_SetMR(2, period);
++    seL4_Call(ep, seL4_MessageInfo_new(0xF00, 0, 0, 3));
++
++    seL4_Wait(signal, NULL);
++
++    int ret = 0;
++    for (int i = 0; i < RUNS; i++) {
++        int stage = 0;
++        while (stage < 2) {
++      		uint64_t start = tsc_get_time(freq);
++            uint64_t deadline = start + period;
++            results[i][stage][0] = start;
++            results[i][stage][1] = deadline;
++
++            ret |= cjpeg_main(8, cjpeg_argv);
++            if (stage >= 1) {
++                ret |= cjpeg_main(8, cjpeg_argv);
++                for (int k = 0; k < 5; k++) {
++                    ret |= djpeg_main(7, djpeg_argv);
++                }
++            }
++            uint64_t now = tsc_get_time(freq);
++            results[i][stage][2] = now;
++            seL4_Wait(signal, NULL);
++            stage++;
++        }
++    }
++
++ /* dump results */
++    printf("Done, dumping results\n");
++
++    for (int stage = 0; stage < 2; stage++) {
++        for (int i = 0; i < RUNS; i ++) {
++        /* we should always have met the deadline */
++      //  assert(results[i][1] > results[i][3]);
++        assert(results[i][3] > results[i][0]);
++            printf("CJPEG\t%lu\t%d\n", results[i][stage][2] - results[i][stage][0], stage);
++        }
++    }
++
++    return ret;
+ }

@@ -9,7 +9,7 @@ build/.stamp: | dl/${MIBENCH_AUTOMOTIVE}
 	touch $@
 
 susan: build/.stamp build/susan.c
-	(cd build; ${RUMPRUN_CC} -osusan.o susan.c -lm -lc -g)
+	(cd build; ${RUMPRUN_CC} -O4 -osusan.o susan.c -lm -lc -I../include)
 
 .PHONY: clean
 

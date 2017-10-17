@@ -1,0 +1,12 @@
+--- a/jpeg-6a/cdjpeg.h	2001-10-17 12:57:07.000000000 +1000
++++ b/jpeg-6a/cdjpeg.h	2017-10-16 13:57:53.348619899 +1100
+@@ -150,6 +150,9 @@
+ EXTERN(FILE *) read_stdin JPP((void));
+ EXTERN(FILE *) write_stdout JPP((void));
+
++int djpeg_main (int argc, char **argv);
++int cjpeg_main (int argc, char **argv);
++
+ /* miscellaneous useful macros */
+
+ #ifdef DONT_USE_B_MODE		/* define mode parameters for fopen() */
