@@ -1,0 +1,11 @@
+--- a/mad-0.14.2b/Makefile.in	2001-11-09 18:02:44.000000000 +1100
++++ b/mad-0.14.2b/Makefile.in	2018-02-20 14:23:29.395227566 +1100
+@@ -135,7 +135,7 @@
+ audio = @AUDIO@
+
+ localedir = $(datadir)/locale
+-INCLUDES = -Ilibmad -I$(srcdir)/libid3tag -Iintl  			-DLOCALEDIR=\"$(localedir)\"
++INCLUDES = -Ilibmad -I$(srcdir)/libid3tag -Iintl -I../../include  			-DLOCALEDIR=\"$(localedir)\"
+
+
+ depend_libmad = libmad/libmad.la

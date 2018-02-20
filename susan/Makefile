@@ -6,6 +6,7 @@ all: susan
 build/.stamp: | dl/${MIBENCH_AUTOMOTIVE}
 	mkdir -p $(dir $@)
 	(cd build && tar -xz --strip-components 2 -f ../dl/${MIBENCH_AUTOMOTIVE} automotive/susan)
+	(cd build && ../../scripts/apply-patches.sh ./ ../patches/*)
 	touch $@
 
 susan: build/.stamp build/susan.c

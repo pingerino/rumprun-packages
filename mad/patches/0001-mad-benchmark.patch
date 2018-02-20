@@ -1,0 +1,292 @@
+diff --git a/mad-0.14.2b/Makefile.in b/mad-0.14.2b/Makefile.in
+index b014b4e..9eaa34e 100755
+--- a/mad-0.14.2b/Makefile.in
++++ b/mad-0.14.2b/Makefile.in
+@@ -92,9 +92,9 @@ USE_NLS = @USE_NLS@
+ VERSION = @VERSION@
+ l = @l@
+ @BUILD_WINAMP_TRUE@winamp = winamp
+-@BUILD_WINAMP_FALSE@winamp = 
++@BUILD_WINAMP_FALSE@winamp =
+ @BUILD_LIBZ_TRUE@libz = libz
+-@BUILD_LIBZ_FALSE@libz = 
++@BUILD_LIBZ_FALSE@libz =
+ @BUILD_LIBZ_TRUE@ldadd_libz = -Llibz -lz
+ @BUILD_LIBZ_FALSE@ldadd_libz = -lz
+ 
+@@ -160,33 +160,33 @@ CLEANFILES = $(EXTRA_PROGRAMS) *.exe gmon.out
+ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+ CONFIG_HEADER = config.h
+-CONFIG_CLEAN_FILES = 
++CONFIG_CLEAN_FILES =
+ PROGRAMS =  $(bin_PROGRAMS)
+ 
+ 
+-DEFS = @DEFS@ -I. -I$(srcdir) -I.
++DEFS = @DEFS@ -I. -I$(srcdir) -I. -I../../include
+ CPPFLAGS = @CPPFLAGS@
+ LDFLAGS = @LDFLAGS@
+ LIBS = @LIBS@
+ madtime_OBJECTS =  version.o madtime.o
+ madtime_LDADD = $(LDADD)
+ madtime_DEPENDENCIES =  @LIBOBJS@ libmad/libmad.la
+-madtime_LDFLAGS = 
++madtime_LDFLAGS =
+ minimad_OBJECTS =  minimad.o
+ minimad_LDADD = $(LDADD)
+ minimad_DEPENDENCIES =  @LIBOBJS@ libmad/libmad.la
+-minimad_LDFLAGS = 
++minimad_LDFLAGS =
+ madmix_OBJECTS =  version.o madmix.o audio.o audio_cdda.o audio_aiff.o \
+ audio_wave.o audio_snd.o audio_raw.o audio_null.o
+-madmix_LDFLAGS = 
++madmix_LDFLAGS =
+ mad123_OBJECTS =  mad123.o
+ mad123_LDADD = $(LDADD)
+ mad123_DEPENDENCIES =  @LIBOBJS@ libmad/libmad.la
+-mad123_LDFLAGS = 
++mad123_LDFLAGS =
+ madplay_OBJECTS =  version.o audio.o audio_cdda.o audio_aiff.o \
+ audio_wave.o audio_snd.o audio_raw.o audio_null.o madplay.o resample.o \
+ filter.o equalizer.o xing.o player.o getopt.o getopt1.o
+-madplay_LDFLAGS = 
++madplay_LDFLAGS =
+ SCRIPTS =  $(bin_SCRIPTS)
+ 
+ CFLAGS = @CFLAGS@
+@@ -214,7 +214,7 @@ OBJECTS = $(madtime_OBJECTS) $(minimad_OBJECTS) $(madmix_OBJECTS) $(mad123_OBJEC
+ all: all-redirect
+ .SUFFIXES:
+ .SUFFIXES: .S .c .lo .o .s
+-$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
++$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4)
+ 	cd $(top_srcdir) && $(AUTOMAKE) --foreign --include-deps Makefile
+ 
+ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+diff --git a/mad-0.14.2b/audio_sun.c b/mad-0.14.2b/audio_sun.c
+index 42d7f11..c82fb99 100755
+--- a/mad-0.14.2b/audio_sun.c
++++ b/mad-0.14.2b/audio_sun.c
+@@ -37,6 +37,7 @@
+ #  include <stropts.h>
+ # endif
+ 
++typedef long paddr_t;
+ # include <sys/conf.h>
+ 
+ # include "mad.h"
+diff --git a/mad-0.14.2b/configure.in b/mad-0.14.2b/configure.in
+index 93c41b1..7bfbc10 100755
+--- a/mad-0.14.2b/configure.in
++++ b/mad-0.14.2b/configure.in
+@@ -54,7 +54,7 @@ optimize=""
+ profile=""
+ 
+ set -- $CFLAGS
+-CFLAGS="-Wall"
++CFLAGS="-Wall -I../../include"
+ 
+ if test "$GCC" = yes
+ then
+diff --git a/mad-0.14.2b/madplay.c b/mad-0.14.2b/madplay.c
+index 917e4bb..e789c7d 100755
+--- a/mad-0.14.2b/madplay.c
++++ b/mad-0.14.2b/madplay.c
+@@ -50,6 +50,8 @@
+ # include "audio.h"
+ # include "player.h"
+ 
++#include <sel4/sel4.h>
++
+ # define FADE_DEFAULT	"0:05"
+ 
+ # if defined(EXPERIMENTAL)
+@@ -398,6 +400,8 @@ mad_fixed_t get_decibels(char const *str)
+   return mad_f_tofixed(pow(10, db / 20));
+ }
+ 
++#define POSIXLY_CORRECT
++
+ /*
+  * NAME:	get_options()
+  * DESCRIPTION:	parse command-line options or die
+@@ -405,7 +409,8 @@ mad_fixed_t get_decibels(char const *str)
+ static
+ void get_options(int argc, char *argv[], struct player *player)
+ {
+-  int opt, index;
++  int opt = 0;
++  int index = 0;
+   int ttyset = 0;
+ 
+   while ((opt = getopt_long(argc, argv,
+@@ -503,8 +508,9 @@ void get_options(int argc, char *argv[], struct player *player)
+       if (player->output.command == 0)
+ 	die(_("unknown output format type for \"%s\""), optarg);
+ 
+-      if (!ttyset)
+-	player->options &= ~PLAYER_OPTION_TTYCONTROL;
++      if (!ttyset) {
++          player->options &= ~PLAYER_OPTION_TTYCONTROL;
++      }
+       break;
+ 
+ # if 0
+@@ -586,11 +592,11 @@ void get_options(int argc, char *argv[], struct player *player)
+  * NAME:	main()
+  * DESCRIPTION:	program entry point
+  */
+-int main(int argc, char *argv[])
++int mad_main(int argc, char *argv[])
+ {
+-  struct player player;
++  struct player player = {0};
+   int result = 0;
+-
++  optind = 1;
+   argv0 = argv[0];
+ 
+   /* internationalization support */
+@@ -602,7 +608,6 @@ int main(int argc, char *argv[])
+ # endif
+ 
+   /* initialize and get options */
+-
+   player_init(&player);
+ 
+ # if !defined(__CYGWIN__)  /* Cygwin support for this is currently buggy */
+@@ -653,3 +658,133 @@ int main(int argc, char *argv[])
+ 
+   return result;
+ }
++
++
++#define NS_IN_S 1000000000
++
++/* serialised read of the tsc. This will execute in order and no memory loads will be executed
++ * beforehand */
++static inline uint64_t
++rdtsc_cpuid(void)
++{
++
++    uint32_t high, low;
++
++    __asm__ __volatile__ (
++        "movl $0, %%eax \n"
++        "movl $0, %%ecx \n"
++        "cpuid          \n"
++        "rdtsc          \n"
++        "movl %%edx, %0 \n"
++        "movl %%eax, %1 \n"
++        "movl $0, %%eax \n"
++        "movl $0, %%ecx \n"
++        "cpuid          \n"
++        : "=r" (high), "=r" (low)
++        : /* no inputs */
++        : "eax", "ebx", "ecx", "edx"
++    );
++
++    return ((uint64_t) high) << 32llu | (uint64_t) low;
++}
++
++
++#define SET_TIMEOUT 2
++#define TIMEOUT_PERIODIC 0
++
++
++/* This function can be used to calculate ((a * b) / c) without causing
++ * overflow by doing (a * b). It also allows you to avoid loss of precision
++ * if you attempte to rearrange the algorithm to (a * (c / b))
++ * It is essentially the Ancient Egyption Multiplication
++ * with (a * (b / c)) but we keep (b / c) in quotient+remainder
++ * form to not lose precision.
++ * This function only works with unsigned 64bit types. It can be
++ * trivially abstracted to other sizes. Dealing with signed is possible
++ * but not included here */
++static inline uint64_t muldivu64(uint64_t a, uint64_t b, uint64_t c)
++{
++    /* quotient and remainder of the final calculation */
++    uint64_t quotient = 0;
++    uint64_t remainder = 0;
++    /* running quotient and remainder of the current power of two
++     * bit we are looking at. As we look at the different bits
++     * of a we will increase these */
++    uint64_t cur_quotient = b / c;
++    uint64_t cur_remainder = b % c;
++    /* we will iterate through all the bits of a from least to most
++     * significant, we can stop early once there are no set bits though */
++    while (a) {
++        /* If this bit is set then the power of two is part of the
++         * construction of a */
++        if (a & 1) {
++            /* increase final quotient, taking care of any remainder */
++            quotient += cur_quotient;
++            remainder += cur_remainder;
++            if (remainder >= c) {
++                quotient++;
++                remainder -= c;
++            }
++        }
++        /* Go to the next bit of a. Also means the effective quotient
++         * and remainder of our (b / c) needs increasing */
++        a >>= 1;
++        cur_quotient <<= 1;
++        cur_remainder <<= 1;
++        /* Keep the remainder sensible, otherewise the remainder check
++         * in the if (a & 1) case has to become a loop */
++        if (cur_remainder >= c) {
++            cur_quotient++;
++            cur_remainder -= c;
++        }
++    }
++    return quotient;
++}
++
++static inline uint64_t tsc_get_time(uint64_t freq)
++{
++    return muldivu64(rdtsc_cpuid(), NS_IN_S, freq);
++}
++
++
++int main(int argc, char *argv[]) {
++
++    volatile int *stage = (int *) atol(argv[1]);
++    uint64_t period = atol(argv[2]);
++    seL4_CPtr ep = atol(argv[3]);
++    seL4_CPtr signal = atol(argv[4]);
++    uint64_t freq = atol(argv[5]);
++    uint64_t *results = (uint64_t *) atol(argv[6]);
++
++    char *mad_argv[] = {
++        "madplay",
++        "--time=30",
++        "--output=wave:/tmp/output_large.wav",
++        "-q",
++        "/data/mad/large.mp3"
++    };
++
++    seL4_SetMR(0, SET_TIMEOUT);
++    seL4_SetMR(1, TIMEOUT_PERIODIC);
++    seL4_SetMR(2, period);
++    seL4_Call(ep, seL4_MessageInfo_new(0xF00, 0, 0, 3));
++    /* wait for the start signal */
++    seL4_Wait(signal, NULL);
++
++    int ret = 0;
++    int i = 0;
++    while (*stage < 4) {
++        results[i] = tsc_get_time(freq);
++        i++;
++
++		ret |= mad_main(5, mad_argv);
++        results[i] = tsc_get_time(freq);
++        i++;
++        results[i] = *stage;
++        i++;
++        seL4_Wait(signal, NULL);
++        assert(i < 262144);
++	}
++
++    return ret;
++}
